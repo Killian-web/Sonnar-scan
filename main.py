@@ -9,3 +9,5 @@ def stages_cancer(**kwargs):
 
 
 print(stages_cancer(a=2, b=5, c=8))
+
+secret_key = "tgoijr454312242@#@#@"
