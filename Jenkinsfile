@@ -47,7 +47,6 @@ pipeline {
                       mvn sonar:sonar \
                       -Dsonar.projectKey=account-service \
                       -Dsonar.projectName=account-service \
-                      -Dsonar.login=sqp_06a129d0bb0a44e3ef30a4b4f0f769e452822790
                       -Dsonar.host.url=$SONAR_HOST_URL
                     '''
                 }
