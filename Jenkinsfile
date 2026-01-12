@@ -7,9 +7,9 @@ pipeline {
     }
     
     environment {
-        NEXUS_URL = 'http://[NEXUS-IP]:8081'
-        SONAR_HOST_URL = 'http://[SONAR-IP]:9000'
-        DOCKER_REGISTRY = '[NEXUS-IP]:8082'
+        NEXUS_URL = 'http://13.49.138.85:8081'
+        SONAR_HOST_URL = 'http://16.171.45.144:9000'
+        DOCKER_REGISTRY = '13.49.138.85:8082'
     }
     
     stages {
