@@ -10,21 +10,23 @@ pipeline {
         NEXUS_URL = 'http://13.49.138.85:8081'
         SONAR_HOST_URL = 'http://16.171.45.144:9000'
         DOCKER_REGISTRY = '13.49.138.85:8082'
+        IMAGE_NAME      = 'account-service'
     }
     
-    stages {
+   stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        
+
         stage('Build') {
             steps {
                 sh 'mvn clean compile'
             }
         }
-        
+
         stage('Test') {
             steps {
                 sh 'mvn test'
@@ -37,28 +39,34 @@ pipeline {
                 }
             }
         }
-        
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('enco-sonarqube') {
-                    sh 'mvn sonar:sonar'
+                    sh '''
+                      mvn sonar:sonar \
+                      -Dsonar.projectKey=account-service \
+                      -Dsonar.projectName=account-service \
+                      -Dsonar.login=sqp_06a129d0bb0a44e3ef30a4b4f0f769e452822790
+                      -Dsonar.host.url=$SONAR_HOST_URL
+                    '''
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("account-service:${env.BUILD_ID}")
+                    docker.build("${IMAGE_NAME}:${BUILD_NUMBER}")
                 }
             }
         }
-        
+
         stage('Push to Nexus') {
             steps {
                 script {
                     docker.withRegistry("http://${DOCKER_REGISTRY}", 'nexus-admin') {
-                        docker.image("account-service:${env.BUILD_ID}").push()
+                        docker.image("${IMAGE_NAME}:${BUILD_NUMBER}").push()
                     }
                 }
             }
@@ -68,15 +76,26 @@ pipeline {
     post {
         success {
             emailext (
-                subject: "SUCCESS: Account Service Build #${env.BUILD_NUMBER}",
-                body: "Build ${env.BUILD_URL} completed successfully!",
+                subject: "SUCCESS: Account Service Build #${BUILD_NUMBER}",
+                body: """
+                Build SUCCESSFUL
+                Job: ${JOB_NAME}
+                Build: ${BUILD_NUMBER}
+                URL: ${BUILD_URL}
+                """,
                 to: 'devops@encobank.com'
             )
         }
+
         failure {
             emailext (
-                subject: "FAILED: Account Service Build #${env.BUILD_NUMBER}",
-                body: "Build ${env.BUILD_URL} failed! Please check.",
+                subject: "FAILED: Account Service Build #${BUILD_NUMBER}",
+                body: """
+                Build FAILED
+                Job: ${JOB_NAME}
+                Build: ${BUILD_NUMBER}
+                URL: ${BUILD_URL}
+                """,
                 to: 'devops@encobank.com'
             )
         }
