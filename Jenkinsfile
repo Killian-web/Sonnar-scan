@@ -66,7 +66,7 @@ pipeline {
             steps {
                 script {
                     withDockerRegistry(
-                        credentialsId: 'nexus-docker-creds',
+                        credentialsId: 'nexus-admin',
                         url: "http://${DOCKER_REGISTRY_URL}"
                     ) {
                         sh """
