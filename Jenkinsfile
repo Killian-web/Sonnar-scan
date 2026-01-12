@@ -47,7 +47,6 @@ pipeline {
                       mvn sonar:sonar \
                       -Dsonar.projectKey=account-service \
                       -Dsonar.projectName=account-service \
-                      // -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
                       -Dsonar.host.url=$SONAR_HOST_URL
                     '''
                 }
