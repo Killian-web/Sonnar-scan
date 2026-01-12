@@ -10,6 +10,7 @@ pipeline {
         NEXUS_URL = 'http://13.49.138.85:8081'
         SONAR_HOST_URL = 'http://16.171.45.144:9000'
         DOCKER_REGISTRY = '13.49.138.85:8082'
+        DOCKER_REGISTRY_URL = '13.49.138.85:8083'
         IMAGE_NAME      = 'account-service'
     }
     
@@ -64,8 +65,17 @@ pipeline {
         stage('Push to Nexus') {
             steps {
                 script {
-                    docker.withRegistry("http://${DOCKER_REGISTRY}", 'nexus-admin') {
-                        docker.image("${IMAGE_NAME}:${BUILD_NUMBER}").push()
+                    withDockerRegistry(
+                        credentialsId: 'nexus-docker-creds',
+                        url: "http://${DOCKER_REGISTRY_URL}"
+                    ) {
+                        sh """
+                          docker tag ${IMAGE_NAME}:${BUILD_NUMBER} \
+                          ${DOCKER_REGISTRY_URL}/${IMAGE_NAME}:${BUILD_NUMBER}
+        
+                          docker push \
+                          ${DOCKER_REGISTRY_URL}/${IMAGE_NAME}:${BUILD_NUMBER}
+                        """
                     }
                 }
             }
