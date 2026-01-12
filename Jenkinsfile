@@ -95,7 +95,7 @@ pipeline {
                 Build: ${BUILD_NUMBER}
                 URL: ${BUILD_URL}
                 """,
-                to: 'devops@encobank.com'
+                to: 'rajpatel.enco@atomicmail.io'
             )
         }
     }
