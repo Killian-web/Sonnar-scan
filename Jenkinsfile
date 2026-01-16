@@ -56,6 +56,7 @@ pipeline {
                       -Dsonar.projectKey=account-service \
                       -Dsonar.projectName=account-service \
                       -Dsonar.host.url=${SONAR_HOST_URL}
+                      
                       -Dsonar.login=$SONAR_TOKEN 
                     """
                 }
