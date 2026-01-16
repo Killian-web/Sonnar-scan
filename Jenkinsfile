@@ -54,6 +54,7 @@ pipeline {
                       -Dsonar.projectKey=account-service \
                       -Dsonar.projectName=account-service \
                       -Dsonar.host.url=${SONAR_HOST_URL}
+                      -Dsonar.login=sqp_72fb71b6c0de8de5d959842b0de0b8431d07f412 
                     """
                 }
             }
