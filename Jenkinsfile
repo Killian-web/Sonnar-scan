@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        NEXUS_REPO_URL = 'http://13.49.138.85:8081/repository/maven-releases/'
+        NEXUS_REPO_URL = 'http://16.16.91.8:8081/repository/maven-releases/'
         SONAR_HOST_URL = 'http://13.51.251.109:9000'
         SONAR_TOKEN = credentials('sonar-token')
         DOCKERHUB_USERNAME = '2000nn'
