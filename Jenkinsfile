@@ -8,18 +8,17 @@ pipeline {
     }
 
     environment {
-        // Nexus (Maven only)
+        // Nexus
         NEXUS_REPO_URL = 'http://16.16.91.8:8081/repository/maven-releases/'
-        
+
         // SonarQube
         SONAR_HOST_URL = 'http://13.51.251.109:9000'
-
         SONAR_TOKEN = credentials('sonar-token')
 
         // Docker Hub
         DOCKERHUB_USERNAME = '2000nn'
         IMAGE_NAME = 'account-service'
-        FULL_IMAGE_NAME = "${DOCKERHUB_USERNAME}/account-service"
+        FULL_IMAGE_NAME = "${DOCKERHUB_USERNAME}/${IMAGE_NAME}"
     }
 
     stages {
@@ -30,15 +29,9 @@ pipeline {
             }
         }
 
-        stage('Build Application') {
+        stage('Build & Unit Tests') {
             steps {
-                sh 'mvn clean package -DskipTests'
-            }
-        }
-
-        stage('Run Unit Tests') {
-            steps {
-                sh 'mvn test'
+                sh 'mvn clean verify'
             }
             post {
                 always {
@@ -51,14 +44,13 @@ pipeline {
         stage('SonarQube Code Analysis') {
             steps {
                 withSonarQubeEnv('enco-sonarqube') {
-                    sh """
+                    sh '''
                       mvn sonar:sonar \
-                      -Dsonar.projectKey=account-service \
-                      -Dsonar.projectName=account-service \
-                      -Dsonar.host.url=${SONAR_HOST_URL}
-                      
-                      -Dsonar.login=$SONAR_TOKEN 
-                    """
+                        -Dsonar.projectKey=account-service \
+                        -Dsonar.projectName=account-service \
+                        -Dsonar.host.url=$SONAR_HOST_URL \
+                        -Dsonar.login=$SONAR_TOKEN
+                    '''
                 }
             }
         }
@@ -71,10 +63,10 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh """
+                sh '''
                   docker build -t ${FULL_IMAGE_NAME}:${BUILD_NUMBER} .
                   docker tag ${FULL_IMAGE_NAME}:${BUILD_NUMBER} ${FULL_IMAGE_NAME}:latest
-                """
+                '''
             }
         }
 
@@ -84,10 +76,10 @@ pipeline {
                     credentialsId: 'dockerhub-credentials',
                     url: 'https://index.docker.io/v1/'
                 ) {
-                    sh """
+                    sh '''
                       docker push ${FULL_IMAGE_NAME}:${BUILD_NUMBER}
                       docker push ${FULL_IMAGE_NAME}:latest
-                    """
+                    '''
                 }
             }
         }
@@ -98,17 +90,17 @@ pipeline {
             emailext (
                 subject: "SUCCESS: Account Service Build #${BUILD_NUMBER}",
                 body: """
-                ✅ Build SUCCESSFUL
 
-                Job: ${JOB_NAME}
-                Build Number: ${BUILD_NUMBER}
 
-                Docker Image:
-                ${FULL_IMAGE_NAME}:${BUILD_NUMBER}
+Job: ${JOB_NAME}
+Build Number: ${BUILD_NUMBER}
 
-                Jenkins URL:
-                ${BUILD_URL}
-                """,
+Docker Image:
+${FULL_IMAGE_NAME}:${BUILD_NUMBER}
+
+Jenkins URL:
+${BUILD_URL}
+""",
                 to: 'devops@encobank.com'
             )
         }
@@ -117,14 +109,14 @@ pipeline {
             emailext (
                 subject: "FAILED: Account Service Build #${BUILD_NUMBER}",
                 body: """
-                ❌ Build FAILED
 
-                Job: ${JOB_NAME}
-                Build Number: ${BUILD_NUMBER}
 
-                Jenkins URL:
-                ${BUILD_URL}
-                """,
+Job: ${JOB_NAME}
+Build Number: ${BUILD_NUMBER}
+
+Jenkins URL:
+${BUILD_URL}
+""",
                 to: 'rajpatel.enco@atomicmail.io'
             )
         }
