@@ -45,16 +45,11 @@ pipeline {
             }
         }
 
-        stage('Publish JAR to Nexus') {
+        stage('Build & Publish to Nexus') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'nexus-admin', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-                    sh '''
-                        mvn deploy -DskipTests \
-                        -DaltDeploymentRepository=nexus-releases::default::$NEXUS_REPO_URL \
-                        -Dnexus.username=$NEXUS_USER \
-                        -Dnexus.password=$NEXUS_PASS
-                    '''
-                }
+                sh '''
+                  mvn clean deploy -DskipTests
+                '''
             }
         }
 
