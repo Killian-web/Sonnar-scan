@@ -8,31 +8,21 @@ pipeline {
     }
 
     environment {
-        // Nexus
-        NEXUS_REPO_URL = 'http://16.16.91.8:8081/repository/maven-releases/'
-
-        // SonarQube
+        NEXUS_REPO_URL = 'http://13.49.138.85:8081/repository/maven-releases/'
         SONAR_HOST_URL = 'http://13.51.251.109:9000'
         SONAR_TOKEN = credentials('sonar-token')
-
-        // Docker Hub
         DOCKERHUB_USERNAME = '2000nn'
         IMAGE_NAME = 'account-service'
         FULL_IMAGE_NAME = "${DOCKERHUB_USERNAME}/${IMAGE_NAME}"
     }
 
     stages {
-
         stage('Checkout Source') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
 
         stage('Build & Unit Tests') {
-            steps {
-                sh 'mvn clean verify'
-            }
+            steps { sh 'mvn clean verify' }
             post {
                 always {
                     junit allowEmptyResults: true,
@@ -41,7 +31,7 @@ pipeline {
             }
         }
 
-        stage('SonarQube Code Analysis') {
+        stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('enco-sonarqube') {
                     sh '''
@@ -57,7 +47,14 @@ pipeline {
 
         stage('Publish JAR to Nexus') {
             steps {
-                sh 'mvn deploy -DskipTests'
+                withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                    sh '''
+                        mvn deploy -DskipTests \
+                        -DaltDeploymentRepository=nexus-releases::default::$NEXUS_REPO_URL \
+                        -Dnexus.username=$NEXUS_USER \
+                        -Dnexus.password=$NEXUS_PASS
+                    '''
+                }
             }
         }
 
@@ -72,10 +69,7 @@ pipeline {
 
         stage('Push Image to Docker Hub') {
             steps {
-                withDockerRegistry(
-                    credentialsId: 'dockerhub-credentials',
-                    url: 'https://index.docker.io/v1/'
-                ) {
+                withDockerRegistry(credentialsId: 'dockerhub-credentials', url: 'https://index.docker.io/v1/') {
                     sh '''
                       docker push ${FULL_IMAGE_NAME}:${BUILD_NUMBER}
                       docker push ${FULL_IMAGE_NAME}:latest
@@ -87,37 +81,17 @@ pipeline {
 
     post {
         success {
-            emailext (
-                subject: "SUCCESS: Account Service Build #${BUILD_NUMBER}",
-                body: """
-
-
-Job: ${JOB_NAME}
-Build Number: ${BUILD_NUMBER}
-
-Docker Image:
-${FULL_IMAGE_NAME}:${BUILD_NUMBER}
-
-Jenkins URL:
-${BUILD_URL}
-""",
+            emailext(
+                subject: "SUCCESS: Build #${BUILD_NUMBER}",
+                body: " Build SUCCESSFUL\nJenkins URL: ${BUILD_URL}",
                 to: 'devops@encobank.com'
             )
         }
-
         failure {
-            emailext (
-                subject: "FAILED: Account Service Build #${BUILD_NUMBER}",
-                body: """
-
-
-Job: ${JOB_NAME}
-Build Number: ${BUILD_NUMBER}
-
-Jenkins URL:
-${BUILD_URL}
-""",
-                to: 'rajpatel.enco@atomicmail.io'
+            emailext(
+                subject: "FAILED: Build #${BUILD_NUMBER}",
+                body: " Build FAILED\nJenkins URL: ${BUILD_URL}",
+                to: 'devops@encobank.com'
             )
         }
     }
