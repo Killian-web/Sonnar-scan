@@ -48,8 +48,7 @@ pipeline {
         stage('Build & Publish to Nexus') {
             steps {
                 sh '''
-                  mvn clean deploy -DskipTests \
-                  --settings /var/lib/jenkins/.m2/settings.xml
+                  mvn clean deploy -DskipTests 
                 '''
             }
         }
