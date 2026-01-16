@@ -47,7 +47,7 @@ pipeline {
 
         stage('Publish JAR to Nexus') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'nexus-admin', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                     sh '''
                         mvn deploy -DskipTests \
                         -DaltDeploymentRepository=nexus-releases::default::$NEXUS_REPO_URL \
