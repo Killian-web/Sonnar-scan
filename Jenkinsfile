@@ -14,6 +14,8 @@ pipeline {
         // SonarQube
         SONAR_HOST_URL = 'http://13.51.251.109:9000'
 
+        SONAR_TOKEN = credentials('sonar-token')
+
         // Docker Hub
         DOCKERHUB_USERNAME = '2000nn'
         IMAGE_NAME = 'account-service'
@@ -54,7 +56,7 @@ pipeline {
                       -Dsonar.projectKey=account-service \
                       -Dsonar.projectName=account-service \
                       -Dsonar.host.url=${SONAR_HOST_URL}
-                      -Dsonar.login=sqp_72fb71b6c0de8de5d959842b0de0b8431d07f412 
+                      -Dsonar.login=$SONAR_TOKEN 
                     """
                 }
             }
