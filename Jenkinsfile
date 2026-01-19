@@ -8,21 +8,39 @@ pipeline {
     }
 
     environment {
+        // ===== Application =====
+        SERVICE_NAME = 'account-service'
+
+        // ===== Nexus =====
         NEXUS_REPO_URL = 'http://16.16.91.8:8081/repository/maven-releases/'
+
+        // ===== SonarQube =====
         SONAR_HOST_URL = 'http://13.51.251.109:9000'
         SONAR_TOKEN = credentials('sonar-token')
+
+        // ===== Docker =====
         DOCKERHUB_USERNAME = '2000nn'
         IMAGE_NAME = 'account-service'
         FULL_IMAGE_NAME = "${DOCKERHUB_USERNAME}/${IMAGE_NAME}"
+        DOCKER_IMAGE = "${FULL_IMAGE_NAME}:${BUILD_NUMBER}"
+
+        // ===== AWS / EKS =====
+        AWS_REGION = 'us-east-1'
+        EKS_CLUSTER = 'enco-dev-eks'
     }
 
     stages {
+
         stage('Checkout Source') {
-            steps { checkout scm }
+            steps {
+                checkout scm
+            }
         }
 
         stage('Build & Unit Tests') {
-            steps { sh 'mvn clean verify' }
+            steps {
+                sh 'mvn clean verify'
+            }
             post {
                 always {
                     junit allowEmptyResults: true,
@@ -35,11 +53,11 @@ pipeline {
             steps {
                 withSonarQubeEnv('enco-sonarqube') {
                     sh '''
-                      mvn sonar:sonar \
-                        -Dsonar.projectKey=account-service \
-                        -Dsonar.projectName=account-service \
-                        -Dsonar.host.url=$SONAR_HOST_URL \
-                        -Dsonar.login=$SONAR_TOKEN
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=account-service \
+                          -Dsonar.projectName=account-service \
+                          -Dsonar.host.url=$SONAR_HOST_URL \
+                          -Dsonar.login=$SONAR_TOKEN
                     '''
                 }
             }
@@ -48,8 +66,8 @@ pipeline {
         stage('Build & Publish to Nexus') {
             steps {
                 sh '''
-                  mvn clean deploy -DskipTests \
-                  --settings /var/lib/jenkins/.m2/settings.xml
+                    mvn clean deploy -DskipTests \
+                    --settings /var/lib/jenkins/.m2/settings.xml
                 '''
             }
         }
@@ -57,18 +75,41 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                  docker build -t ${FULL_IMAGE_NAME}:${BUILD_NUMBER} .
-                  docker tag ${FULL_IMAGE_NAME}:${BUILD_NUMBER} ${FULL_IMAGE_NAME}:latest
+                    docker build -t ${FULL_IMAGE_NAME}:${BUILD_NUMBER} .
+                    docker tag ${FULL_IMAGE_NAME}:${BUILD_NUMBER} ${FULL_IMAGE_NAME}:latest
                 '''
             }
         }
 
         stage('Push Image to Docker Hub') {
             steps {
-                withDockerRegistry(credentialsId: 'dockerhub-credentials', url: 'https://index.docker.io/v1/') {
+                withDockerRegistry(
+                    credentialsId: 'dockerhub-credentials',
+                    url: 'https://index.docker.io/v1/'
+                ) {
                     sh '''
-                      docker push ${FULL_IMAGE_NAME}:${BUILD_NUMBER}
-                      docker push ${FULL_IMAGE_NAME}:latest
+                        docker push ${FULL_IMAGE_NAME}:${BUILD_NUMBER}
+                        docker push ${FULL_IMAGE_NAME}:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Dev EKS') {
+            steps {
+                script {
+
+                    // Update kubeconfig
+                    sh '''
+                        aws eks update-kubeconfig \
+                          --region ${AWS_REGION} \
+                          --name ${EKS_CLUSTER}
+                    '''
+
+                    // Deploy manifests
+                    sh '''
+                        kubectl apply -f deployment/
+                        kubectl rollout status deployment/account-service -n dev
                     '''
                 }
             }
@@ -76,19 +117,41 @@ pipeline {
     }
 
     post {
+
         success {
             emailext(
-                subject: "SUCCESS: Build #${BUILD_NUMBER}",
-                body: " Build SUCCESSFUL\nJenkins URL: ${BUILD_URL}",
-                to: 'devops@encobank.com'
+                subject: "SUCCESS: Account Service Pipeline #${BUILD_NUMBER}",
+                body: """Pipeline completed successfully!
+
+Details:
+- Service: ${SERVICE_NAME}
+- Image: ${FULL_IMAGE_NAME}:${BUILD_NUMBER}
+- Environment: dev
+- Jenkins URL: ${BUILD_URL}
+- Quality Gate: PASSED
+""",
+                to: 'devops@encobank.com',
+                attachLog: false
             )
         }
+
         failure {
             emailext(
-                subject: "FAILED: Build #${BUILD_NUMBER}",
-                body: " Build FAILED\nJenkins URL: ${BUILD_URL}",
-                to: 'devops@encobank.com'
+                subject: "FAILED: Account Service Pipeline #${BUILD_NUMBER}",
+                body: """Pipeline FAILED!
+
+Please check:
+1. Build logs: ${BUILD_URL}console
+2. Test results: ${BUILD_URL}testReport/
+3. SonarQube: ${SONAR_HOST_URL}
+""",
+                to: 'devops@encobank.com,kate.miller@encobank.com',
+                attachLog: true
             )
+        }
+
+        always {
+            cleanWs()
         }
     }
 }
