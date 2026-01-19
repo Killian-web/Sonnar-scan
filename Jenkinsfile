@@ -25,7 +25,7 @@ pipeline {
         DOCKER_IMAGE = "${FULL_IMAGE_NAME}:${BUILD_NUMBER}"
 
         // ===== AWS / EKS =====
-        AWS_REGION = 'us-east-1'
+        AWS_REGION = 'eu-north-1'
         EKS_CLUSTER = 'enco-dev-eks'
     }
 
