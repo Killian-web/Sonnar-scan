@@ -25,8 +25,8 @@ pipeline {
         DOCKER_IMAGE = "${FULL_IMAGE_NAME}:${BUILD_NUMBER}"
 
         // ===== AWS / EKS =====
-        AWS_REGION = 'eu-north-1'
-        EKS_CLUSTER = 'enco-dev-eks'
+        // AWS_REGION = 'eu-north-1'
+        // EKS_CLUSTER = 'enco-dev-eks'
     }
 
     stages {
@@ -97,23 +97,22 @@ pipeline {
 
         stage('Deploy to Dev EKS') {
             steps {
-                script {
-
-                    // Update kubeconfig
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-credentials']
+                ]) {
                     sh '''
                         aws eks update-kubeconfig \
-                          --region ${AWS_REGION} \
-                          --name ${EKS_CLUSTER}
-                    '''
-
-                    // Deploy manifests
-                    sh '''
+                          --region eu-north-1 \
+                          --name enco-dev-eks
+        
                         kubectl apply -f deployment/
                         kubectl rollout status deployment/account-service -n dev
                     '''
                 }
             }
         }
+
     }
 
     post {
