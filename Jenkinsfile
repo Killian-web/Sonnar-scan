@@ -12,10 +12,10 @@ pipeline {
         SERVICE_NAME = 'account-service'
 
         // ===== Nexus =====
-        NEXUS_REPO_URL = 'http://13.50.235.71:8081/repository/maven-releases/'
+        NEXUS_REPO_URL = 'http://13.48.196.142:8081/repository/maven-releases/'
 
         // ===== SonarQube =====
-        SONAR_HOST_URL = 'http://13.50.226.105:9000'
+        SONAR_HOST_URL = 'http://13.51.252.143:9000'
         SONAR_TOKEN = credentials('sonar-token')
 
         // ===== Docker =====
