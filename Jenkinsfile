@@ -104,7 +104,7 @@ pipeline {
                     sh '''
                         aws eks update-kubeconfig \
                           --region eu-north-1 \
-                          --name enco-dev-eks
+                          --name enco-cluster-dev
         
                         kubectl apply -f deployment/
                         // kubectl rollout status deployment/account-service -n dev
@@ -129,7 +129,7 @@ pipeline {
                     sh '''
                         aws eks update-kubeconfig \
                           --region eu-north-1 \
-                          --name enco-dev-eks
+                          --name enco-cluster-dev
         
                         kubectl delete -f deployment/ --ignore-not-found=true
                     '''
