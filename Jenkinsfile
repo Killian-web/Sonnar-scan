@@ -95,23 +95,23 @@ pipeline {
             }
         }
 
-        // stage('Deploy to Dev EKS') {
-        //     steps {
-        //         withCredentials([
-        //             [$class: 'AmazonWebServicesCredentialsBinding',
-        //              credentialsId: 'aws-credentials']
-        //         ]) {
-        //             sh '''
-        //                 aws eks update-kubeconfig \
-        //                   --region eu-north-1 \
-        //                   --name enco-dev-eks
+        stage('Deploy to Dev EKS') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-credentials']
+                ]) {
+                    sh '''
+                        aws eks update-kubeconfig \
+                          --region eu-north-1 \
+                          --name enco-dev-eks
         
-        //                 kubectl apply -f deployment/
-        //                 // kubectl rollout status deployment/account-service -n dev
-        //             '''
-        //         }
-        //     }
-        // }
+                        kubectl apply -f deployment/
+                        // kubectl rollout status deployment/account-service -n dev
+                    '''
+                }
+            }
+        }
 
 
             stage('Undeploy from Dev EKS (Manual)') {
