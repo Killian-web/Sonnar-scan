@@ -1,3 +1,4 @@
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,3 +7,4 @@ metadata:
 data:
   SPRING_PROFILES_ACTIVE: dev
   SERVER_PORT: "8080"
+
