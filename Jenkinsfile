@@ -105,7 +105,8 @@ pipeline {
                         aws eks update-kubeconfig \
                           --region eu-north-1 \
                           --name enco-cluster-dev
-        
+                        
+                        kubectl apply -f deployment/namespace.yaml
                         kubectl apply -f deployment/ --validate=false
                         kubectl rollout status deployment/account-service -n dev
                     '''
