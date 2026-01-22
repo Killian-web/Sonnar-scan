@@ -106,8 +106,8 @@ pipeline {
                           --region eu-north-1 \
                           --name enco-cluster-dev
         
-                        kubectl apply -f deployment/
-                        // kubectl rollout status deployment/account-service -n dev
+                        kubectl apply -f deployment/ --validate=false
+                        kubectl rollout status deployment/account-service -n dev
                     '''
                 }
             }
