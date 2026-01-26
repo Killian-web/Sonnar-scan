@@ -23,8 +23,8 @@ pipeline {
     environment {
 
         // AWS / EKS
-        AWS_REGION     = 'us-east-1'
-        AWS_ACCOUNT_ID = '123456789'
+        AWS_REGION     = 'eu-north-1'
+        AWS_ACCOUNT_ID = '174715753957'
         EKS_CLUSTER    = 'enco-staging-cluster'
         KUBE_NAMESPACE = 'staging'
 
