@@ -48,7 +48,7 @@ pipeline {
                 echo "Checking out staging branch source code"
 
                 git branch: 'staging',
-                    url: 'https://github.com/yourorg/enco-bank-microservices.git'
+                    url: 'https://github.com/Killian-web/Sonnar-scan.git'
             }
         }
 
