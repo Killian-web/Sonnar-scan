@@ -1,177 +1,209 @@
 pipeline {
+
+    /*****************************************************************
+     * Jenkins agent
+     * Runs on any available Jenkins worker node
+     *****************************************************************/
     agent any
 
-    tools {
-        maven 'Maven-3'
-        git 'Default-Git'
-        jdk 'JDK11'
+    /*****************************************************************
+     * Global pipeline options (industry standard)
+     *****************************************************************/
+    options {
+        timestamps()                 // Add timestamps to logs
+        disableConcurrentBuilds()    // Prevent parallel deploys
+        timeout(time: 60, unit: 'MINUTES') // Prevent stuck pipelines
+        ansiColor('xterm')
     }
 
+    /*****************************************************************
+     * Global environment variables
+     * These define staging behavior
+     *****************************************************************/
     environment {
-        // ===== Application =====
-        SERVICE_NAME = 'account-service'
 
-        // ===== Nexus =====
-        NEXUS_REPO_URL = 'http://13.53.136.200:8081/repository/maven-releases/'
+        // AWS / EKS
+        AWS_REGION     = 'us-east-1'
+        AWS_ACCOUNT_ID = '123456789'
+        EKS_CLUSTER    = 'enco-staging-cluster'
+        KUBE_NAMESPACE = 'staging'
 
-        // ===== SonarQube =====
-        SONAR_HOST_URL = 'http://16.170.40.149:9000'
-        SONAR_TOKEN = credentials('sonar-token')
+        // Application
+        APP_NAME       = 'account-service'
 
-        // ===== Docker =====
-        DOCKERHUB_USERNAME = '2000nn'
-        IMAGE_NAME = 'account-service'
-        FULL_IMAGE_NAME = "${DOCKERHUB_USERNAME}/${IMAGE_NAME}"
-        DOCKER_IMAGE = "${FULL_IMAGE_NAME}:${BUILD_NUMBER}"
+        // Docker
+        ECR_REPO       = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${APP_NAME}"
 
-        // ===== AWS / EKS =====
-        // AWS_REGION = 'eu-north-1'
-        // EKS_CLUSTER = 'enco-dev-eks'
+        // Versioning
+        IMAGE_TAG      = "${env.BUILD_NUMBER}"
     }
 
     stages {
 
+        /*************************************************************
+         * 1️ SOURCE CODE CHECKOUT
+         *************************************************************/
         stage('Checkout Source') {
             steps {
-                checkout scm
+                echo "Checking out staging branch source code"
+
+                git branch: 'staging',
+                    url: 'https://github.com/yourorg/enco-bank-microservices.git'
             }
         }
 
+        /*************************************************************
+         * 2️ MAVEN BUILD & UNIT TESTS
+         *************************************************************/
         stage('Build & Unit Tests') {
             steps {
-                sh 'mvn clean verify'
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true,
-                          testResults: 'target/surefire-reports/*.xml'
-                }
+                echo "Running Maven clean build and unit tests"
+
+                sh '''
+                mvn clean verify \
+                    -DskipITs=false \
+                    -B
+                '''
             }
         }
 
-        stage('SonarQube Analysis') {
+        /*************************************************************
+         * 3️ INTEGRATION TESTS
+         *************************************************************/
+        stage('Integration Tests') {
             steps {
-                withSonarQubeEnv('enco-sonarqube') {
+                echo "Running integration tests"
+
+                sh '''
+                mvn failsafe:integration-test failsafe:verify
+                '''
+            }
+        }
+
+        /*************************************************************
+         * 4️ STATIC CODE QUALITY (SONAR)
+         *************************************************************/
+        stage('Code Quality Scan') {
+            steps {
+                echo "Running SonarQube scan"
+
+                withSonarQubeEnv('sonarqube-server') {
                     sh '''
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=account-service \
-                          -Dsonar.projectName=account-service \
-                          -Dsonar.host.url=$SONAR_HOST_URL \
-                          -Dsonar.login=$SONAR_TOKEN
+                    mvn sonar:sonar \
+                      -Dsonar.projectKey=enco-${APP_NAME}-staging
                     '''
                 }
             }
         }
 
-        stage('Build & Publish to Nexus') {
-            steps {
-                sh '''
-                    mvn clean deploy -DskipTests \
-                    --settings /var/lib/jenkins/.m2/settings.xml
-                '''
-            }
-        }
-
+        /*************************************************************
+         * 5️ BUILD DOCKER IMAGE
+         *************************************************************/
         stage('Build Docker Image') {
             steps {
+                echo "Building Docker image"
+
                 sh '''
-                    docker build -t ${FULL_IMAGE_NAME}:${BUILD_NUMBER} .
-                    docker tag ${FULL_IMAGE_NAME}:${BUILD_NUMBER} ${FULL_IMAGE_NAME}:latest
+                docker build \
+                  -t ${APP_NAME}:${IMAGE_TAG} .
                 '''
             }
         }
 
-        stage('Push Image to Docker Hub') {
+        /*************************************************************
+         * 6️CONTAINER SECURITY SCAN
+         *************************************************************/
+        stage('Container Security Scan') {
             steps {
-                withDockerRegistry(
-                    credentialsId: 'dockerhub-credentials',
-                    url: 'https://index.docker.io/v1/'
-                ) {
-                    sh '''
-                        docker push ${FULL_IMAGE_NAME}:${BUILD_NUMBER}
-                        docker push ${FULL_IMAGE_NAME}:latest
-                    '''
-                }
+                echo "Scanning Docker image with Trivy"
+
+                sh '''
+                trivy image \
+                  --severity HIGH,CRITICAL \
+                  --exit-code 1 \
+                  ${APP_NAME}:${IMAGE_TAG}
+                '''
             }
         }
 
-        stage('Deploy to Dev EKS') {
+        /*************************************************************
+         * 7️ PUSH IMAGE TO AWS ECR
+         *************************************************************/
+        stage('Push Image to ECR') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-credentials']
-                ]) {
-                    sh '''
-                        aws eks update-kubeconfig \
-                          --region eu-north-1 \
-                          --name enco-cluster-dev
-                        
-                        kubectl apply -f deployment/namespace.yaml
-                        kubectl apply -f deployment/ --validate=false
-                        kubectl rollout status deployment/account-service -n dev
-                    '''
-                }
+                echo "Authenticating and pushing image to ECR"
+
+                sh '''
+                aws ecr get-login-password --region ${AWS_REGION} | docker login \
+                    --username AWS \
+                    --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+
+                docker tag ${APP_NAME}:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}
+                docker push ${ECR_REPO}:${IMAGE_TAG}
+                '''
             }
         }
 
-
-            stage('Undeploy from Dev EKS (Manual)') {
-            when {
-                expression { currentBuild.currentResult == 'SUCCESS' }
-            }
+        /*************************************************************
+         * 8️ DEPLOY TO STAGING EKS (HELM)
+         *************************************************************/
+        stage('Deploy to Staging EKS') {
             steps {
-                input message: 'Do you want to DELETE the deployment from Dev EKS?',
-                      ok: 'Yes, delete it'
-        
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-credentials']
-                ]) {
-                    sh '''
-                        aws eks update-kubeconfig \
-                          --region eu-north-1 \
-                          --name enco-cluster-dev
-        
-                        kubectl delete -f deployment/ --ignore-not-found=true
-                    '''
-                }
+                echo "Deploying to staging EKS using Helm"
+
+                sh '''
+                aws eks update-kubeconfig \
+                  --region ${AWS_REGION} \
+                  --name ${EKS_CLUSTER}
+
+                helm upgrade --install ${APP_NAME} ./charts/${APP_NAME} \
+                  --namespace ${KUBE_NAMESPACE} \
+                  --create-namespace \
+                  --set image.repository=${ECR_REPO} \
+                  --set image.tag=${IMAGE_TAG} \
+                  --values values/staging.yaml \
+                  --atomic \
+                  --wait \
+                  --timeout 10m
+                '''
             }
         }
 
+        /*************************************************************
+         * 9️ SMOKE & HEALTH CHECKS
+         *************************************************************/
+        stage('Health Checks') {
+            steps {
+                echo "Running post-deployment health checks"
 
+                sh '''
+                curl -f https://staging.encobank.com/health
+                curl -f https://staging.encobank.com/api/accounts/health
+                '''
+            }
+        }
     }
 
+    /*****************************************************************
+     * POST PIPELINE ACTIONS
+     *****************************************************************/
     post {
 
         success {
-            emailext(
-                subject: "SUCCESS: Account Service Pipeline #${BUILD_NUMBER}",
-                body: """Pipeline completed successfully!
+            echo "✅ STAGING DEPLOYMENT SUCCESSFUL"
 
-Details:
-- Service: ${SERVICE_NAME}
-- Image: ${FULL_IMAGE_NAME}:${BUILD_NUMBER}
-- Environment: dev
-- Jenkins URL: ${BUILD_URL}
-- Quality Gate: PASSED
-""",
-                to: 'devops@encobank.com',
-                attachLog: false
+            slackSend(
+                channel: '#deployments',
+                message: " *STAGING DEPLOYMENT SUCCESS*\n${APP_NAME}:${IMAGE_TAG}\n${env.BUILD_URL}"
             )
         }
 
         failure {
-            emailext(
-                subject: "FAILED: Account Service Pipeline #${BUILD_NUMBER}",
-                body: """Pipeline FAILED!
+            echo " STAGING DEPLOYMENT FAILED"
 
-Please check:
-1. Build logs: ${BUILD_URL}console
-2. Test results: ${BUILD_URL}testReport/
-3. SonarQube: ${SONAR_HOST_URL}
-""",
-                to: 'devops@encobank.com,kate.miller@encobank.com',
-                attachLog: true
+            slackSend(
+                channel: '#deployments',
+                message: " *STAGING DEPLOYMENT FAILED*\n${env.BUILD_URL}"
             )
         }
 
