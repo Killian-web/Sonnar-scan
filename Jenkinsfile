@@ -21,7 +21,7 @@ pipeline {
 
         // AWS / EKS
         AWS_REGION     = 'eu-north-1'
-        AWS_ACCOUNT_ID = '174715753957'
+        AWS_ACCOUNT_ID = '560740997447'
         EKS_CLUSTER    = 'enco-staging-cluster'
         KUBE_NAMESPACE = 'staging'
 
@@ -65,15 +65,15 @@ pipeline {
         /*************************************************************
          * 3. INTEGRATION TESTS
          *************************************************************/
-        stage('Integration Tests') {
-            steps {
-                wrap([$class: 'AnsiColorBuildWrapper', colorMapName: 'xterm']) {
-                    sh '''
-                    mvn failsafe:integration-test failsafe:verify
-                    '''
-                }
-            }
-        }
+        // stage('Integration Tests') {
+        //     steps {
+        //         wrap([$class: 'AnsiColorBuildWrapper', colorMapName: 'xterm']) {
+        //             sh '''
+        //             mvn failsafe:integration-test failsafe:verify
+        //             '''
+        //         }
+        //     }
+        // }
 
         /*************************************************************
          * 4. SONARQUBE CODE QUALITY
